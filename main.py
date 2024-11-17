@@ -1,6 +1,7 @@
 from web3 import Web3
 import asyncio
-import queue
+from queue import Queue
+from database.database_ingestion import insert_into_db
 
 
 ws_url = "wss://rpc.gnosischain.com/wss"
@@ -29,39 +30,26 @@ async def listen_for_blocks():
                 # Ajouter le bloc à la queue de manière asynchrone
                 await block_queue.put(block)
                 print(f"Nouveau bloc reçu : {block['number']}")
-            await asyncio.sleep(2)  # Pause pour éviter de surcharger la connexion
+                        
+                await asyncio.sleep(2)  # Pause pour éviter de surcharger la connexion
     except Exception as e:
         print(f"Erreur lors de l'écoute des blocs : {e}")
 
 
-# Fonction pour traiter les transactions
-async def process_transactions():
+# Fonction asynchrone pour traiter l'insertion des blocs
+async def process_blocks():
     while True:
-        # Attendre un bloc de manière asynchrone sans bloquer l'exécution
-        block = await block_queue.get()  # Attente asynchrone pour récupérer un bloc
-        print(f"Traitement du bloc : {block['number']}")
-
-        # Ajouter les transactions du bloc à la queue des transactions
-        for tx_hash in block["transactions"]:
-            await tx_queue.put(tx_hash)  # Utilisation asynchrone
+        if not block_queue.empty():
+            block = await block_queue.get()            
+            await insert_into_db(block)
+        await asyncio.sleep(1)  # Pause légère pour éviter le "busy-waiting"
 
 
-# Fonction pour surveiller et afficher la taille des queues
-async def monitor_queues():
-    while True:
-        # Afficher la taille de la queue des blocs et des transactions
-        print(
-            f"Taille de block_queue : {block_queue.qsize()} | Taille de tx_queue : {tx_queue.qsize()}"
-        )
-        await asyncio.sleep(2)  # Attendre 2 secondes avant de réafficher
-
-
+# Fonction principale pour exécuter les tâches asynchrones
 async def main():
-    await asyncio.gather(
-        listen_for_blocks(),
-        process_transactions(),
-        monitor_queues(),
-    )
+    producer_task = asyncio.create_task(listen_for_blocks())
+    consumer_task = asyncio.create_task(process_blocks())
+    await asyncio.gather(producer_task, consumer_task)
 
 
 # Exécuter l'event loop principal
@@ -69,33 +57,4 @@ if __name__ == "__main__":
     asyncio.run(main())
 
 
-# # Fonction pour récupérer les détails des transactions
-# async def get_transaction_details():
-#     while True:
-#         tx_hash = await tx_queue.get()  # Attente asynchrone pour les transactions
-#         try:
-#             tx = web3.eth.get_transaction(tx_hash)
-#             print(f"Transaction : {tx_hash}")
-#             print(f"From : {tx['from']}")
-#             print(f"To : {tx['to']}")
-#             print(f"Value : {web3.from_wei(tx['value'], 'ether')} ETH")
-#             print("----------------------------------------")
-#         except Exception as e:
-#             print(f"Error retrieving transaction details for {tx_hash}: {e}")
 
-
-# async def main():
-#     # Créer les tâches
-#     block_task = asyncio.create_task(listen_for_blocks())
-#     tx_task = asyncio.create_task(process_transactions())
-#     details_task = asyncio.create_task(get_transaction_details())
-
-#     # Attendre que toutes les tâches se terminent
-#     await asyncio.gather(block_task, tx_task, details_task)
-
-#     # Attendre que la tâche de listen_for_blocks se termine
-#     await block_task
-
-
-# # Exécuter la fonction principale
-# asyncio.run(main())
