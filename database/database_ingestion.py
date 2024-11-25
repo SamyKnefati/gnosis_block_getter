@@ -3,6 +3,12 @@ from web3 import Web3
 import asyncio
 import asyncpg
 from datetime import datetime
+from dotenv import load_dotenv
+import os
+
+# Charger les variables d'environnement
+load_dotenv()
+
 
 # Configuration de la connexion WebSocket
 ws_url = "wss://rpc.gnosischain.com/wss"
@@ -19,6 +25,7 @@ else:
 block_queue = asyncio.Queue()
 tx_queue = asyncio.Queue()
 
+
 async def listen_for_blocks():
     try:
         # Crée un filtre pour écouter les nouveaux blocs
@@ -30,7 +37,7 @@ async def listen_for_blocks():
                 # Ajouter le bloc à la queue de manière asynchrone
                 await block_queue.put(block)
                 print(f"Nouveau bloc reçu : {block['number']}")
-                        
+
                 await asyncio.sleep(2)  # Pause pour éviter de surcharger la connexion
     except Exception as e:
         print(f"Erreur lors de l'écoute des blocs : {e}")
@@ -40,19 +47,20 @@ async def listen_for_blocks():
 async def process_blocks():
     while True:
         if not block_queue.empty():
-            block = await block_queue.get()            
+            block = await block_queue.get()
             await insert_into_db(block)
         await asyncio.sleep(1)  # Pause légère pour éviter le "busy-waiting"
+
 
 # Fonction asynchrone pour insérer les blocs dans PostgreSQL
 async def insert_into_db(block):
     try:
 
         conn = await asyncpg.connect(
-            host="localhost",  # Remplace par l'adresse de ton hôte
-            database="gnosis",  # Remplace par le nom de ta base de données
-            user="samy",  # Remplace par ton nom d'utilisateur PostgreSQL
-            password="samy",  # Remplace par ton mot de passe
+            host=os.getenv("DB_HOST"),  # Adresse de l'hôte
+            database=os.getenv("DB_NAME"),  # Nom de la base de données
+            user=os.getenv("DB_USER"),  # Nom d'utilisateur
+            password=os.getenv("DB_PASSWORD"),
         )
 
         await conn.execute(
@@ -115,7 +123,6 @@ async def insert_into_db(block):
                 if "withdrawals" in block
                 else None
             ),
-            
             bytes(block["withdrawalsRoot"]) if "withdrawalsRoot" in block else None,
             block.get("blobGasUsed", 0),
             block.get("excessBlobGas", 0),
@@ -131,15 +138,17 @@ async def insert_into_db(block):
         print(f"Erreur lors de l'insertion en base de données : {e}")
 
 
-
 # Fonction principale pour exécuter les tâches asynchrones
 async def main():
     producer_task = asyncio.create_task(listen_for_blocks())
     consumer_task = asyncio.create_task(process_blocks())
     await asyncio.gather(producer_task, consumer_task)
 
+
 def main_getter():
     asyncio.run(main())
     # Exécuter l'event loop principal
+
+
 if __name__ == "__main__":
     asyncio.run(main())

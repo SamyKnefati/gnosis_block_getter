@@ -4,7 +4,11 @@ import psycopg2
 import json
 from web3 import Web3
 from psycopg2.extras import execute_values
+from dotenv import load_dotenv
+import os
 
+# Charger les variables d'environnement
+load_dotenv()
 
 w3 = Web3(Web3.HTTPProvider("https://rpc.gnosischain.com"))
 
@@ -12,8 +16,10 @@ w3 = Web3(Web3.HTTPProvider("https://rpc.gnosischain.com"))
 def postgre_conn():
     # Connexion à PostgreSQL
     conn = psycopg2.connect(
-        dbname="gnosis", user="samy", password="samy", host="localhost", port="5432"
-    )
+        host=os.getenv("DB_HOST"),  # Adresse de l'hôte
+        database=os.getenv("DB_NAME"),  # Nom de la base de données
+        user=os.getenv("DB_USER"),  # Nom d'utilisateur
+        password=os.getenv("DB_PASSWORD"),)  # Mot de passe
     cursor = conn.cursor()
     return conn, cursor
 
@@ -22,7 +28,7 @@ def postgre_conn():
 def get_consumer():
     return KafkaConsumer(
         "gnosis_blocks",
-        bootstrap_servers="localhost:9093",
+        bootstrap_servers=os.getenv("KAFKA_HOST"),
         value_deserializer=lambda x: json.loads(x.decode("utf-8")),
     )
 
