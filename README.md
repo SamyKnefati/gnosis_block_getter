@@ -23,14 +23,36 @@ Before you start, ensure you have the following installed:
    ```sh
    git clone https://github.com/SamyKnefati/gnosis_block_getter.git
    cd gnosis_block_getter
-2. **Install the required Python packages:**
-    ```sh
-    pip install -r requirements.txt
-3. **Set up PostgreSQL:**
+2. **Setup a Python environment**
+**Create a virtual environment**:
+   ```bash
+   python3 -m venv venv
+   ```
+   Activate the virtual environment:
+
+   On Linux/MacOS:
+      ```bash
+   source venv/bin/activate
+      ```
+
+   On Windows:
+
+   ```bash
+   venv\Scripts\activate
+   ```
+
+
+
+3. **Install the required Python packages:**
+ ```bash
+ pip install -r requirements.txt
+```
+4. **Set up PostgreSQL:**
 Create a database named gnosis_blocks.
 Create the necessary tables using the provided SQL script.
 
-4. **Set up Kafka using Docker Compose:**
+5. **Set up Kafka using Docker Compose:**
 Start the services using Docker Compose:
-  ```sh
-  docker-compose up -d
+```bash
+docker-compose up -d
+```
