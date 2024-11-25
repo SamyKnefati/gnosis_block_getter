@@ -1,8 +1,18 @@
 CREATE TABLE transactions (
-    tx_hash VARCHAR(66) PRIMARY KEY,  -- Longueur typique pour un hash de transaction Ethereum
-    block_number INTEGER NOT NULL,
-    from_address VARCHAR(42) NOT NULL,  -- Longueur typique pour les adresses Ethereum
-    to_address VARCHAR(42),
-    value NUMERIC(78, 0),  -- Pour stocker de grands nombres sans virgule décimale (peut être ajusté)
-    timestamp TIMESTAMP
+    block_hash BYTEA NOT NULL,                   -- HexBytes pour le hash du bloc
+    block_number BIGINT NOT NULL,               -- Numéro du bloc (entier)
+    from_address VARCHAR(42) NOT NULL,          -- Adresse Ethereum de l'émetteur
+    gas BIGINT NOT NULL,                        -- Quantité de gas
+    gas_price BIGINT NOT NULL,                  -- Prix du gas
+    tx_hash BYTEA NOT NULL PRIMARY KEY,         -- HexBytes pour le hash de la transaction (clé primaire)
+    input_data BYTEA,                           -- HexBytes pour les données d'entrée
+    nonce BIGINT NOT NULL,                      -- Nonce de la transaction
+    to_address VARCHAR(42),                     -- Adresse Ethereum du destinataire (peut être NULL)
+    transaction_index INT NOT NULL,             -- Index de la transaction dans le bloc
+    value NUMERIC(78, 0) NOT NULL,              -- Valeur de la transaction (utilisation de NUMERIC pour de grandes valeurs)
+    type INT NOT NULL,                          -- Type de la transaction
+    chain_id INT NOT NULL,                      -- ID de la chaîne
+    v INT NOT NULL,                             -- Champ "v" de la signature
+    r BYTEA NOT NULL,                           -- HexBytes pour le champ "r" de la signature
+    s BYTEA NOT NULL                            -- HexBytes pour le champ "s" de la signature
 );
