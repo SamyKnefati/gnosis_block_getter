@@ -2,59 +2,87 @@ from web3 import Web3
 import asyncio
 from queue import Queue
 from database.database_ingestion import insert_into_db
+from kafka_process.block_producer import fetch_and_send_blocks
+from kafka_process.block_consumer import (
+    get_consumer,
+    fetch_transactions,
+    insert_transactions,
+    postgre_conn,
+)
+import threading
+import asyncio
+from database.database_ingestion import main_getter 
 
 
-ws_url = "wss://rpc.gnosischain.com/wss"
-web3 = Web3(Web3.LegacyWebSocketProvider(ws_url))
-
-if web3.is_connected():
-    print("Connecté avec succès à la Gnosis Chain via WebSocket")
-else:
-    print("Impossible de se connecter au nœud Gnosis Chain")
-    exit()
-
-# Utilisation d'une queue asynchrone
-block_queue = asyncio.Queue()
-tx_queue = asyncio.Queue()
-
-async def listen_for_blocks():
+# Thread pour le producer
+def producer_thread(conn, cursor):
     try:
-        # Crée un filtre pour écouter les nouveaux blocs
-        block_filter = web3.eth.filter("latest")
-        print("Écoute des nouveaux blocs...")
-
-        while True:
-            # Récupère les nouveaux blocs
-            for block_hash in block_filter.get_new_entries():
-                block = web3.eth.get_block(block_hash)
-                # Ajouter le bloc à la queue de manière asynchrone
-                await block_queue.put(block)
-                print(f"Nouveau bloc reçu : {block['number']}")
-                        
-                await asyncio.sleep(2)  # Pause pour éviter de surcharger la connexion
-    except Exception as e:
-        print(f"Erreur lors de l'écoute des blocs : {e}")
+        fetch_and_send_blocks()
+    except KeyboardInterrupt:
+        print("Producer arrêté par l'utilisateur.")
+    finally:
+        # Fermer les connexions (ajuste ces variables selon ton script)
+        cursor.close()
+        conn.close()
 
 
-# Fonction asynchrone pour traiter l'insertion des blocs
-async def process_blocks():
-    while True:
-        if not block_queue.empty():
-            block = await block_queue.get()            
-            await insert_into_db(block)
-        await asyncio.sleep(1)  # Pause légère pour éviter le "busy-waiting"
+# Thread pour le consumer
+def consumer_thread():
+    consumer = get_consumer()
+    conn, cursor = postgre_conn()
+
+    try:
+        for message in consumer:
+            block = message.value
+            block_number = block["block_number"]
+            print(f"Traitement du bloc {block_number}")
+
+            # Récupérer les transactions associées
+            transactions = fetch_transactions(block["transactions"])
+
+            # Insérer les transactions dans PostgreSQL
+            if transactions:
+                insert_transactions(transactions, cursor=cursor, conn= conn)
+                print(
+                    f"{len(transactions)} transactions insérées pour le bloc {block_number}."
+                )
+            else:
+                print(f"Aucune transaction trouvée pour le bloc {block_number}.")
+    except KeyboardInterrupt:
+        print("Arrêté par l'utilisateur.")
+    finally:
+        consumer.close()
+        cursor.close()
+        conn.close()
 
 
-# Fonction principale pour exécuter les tâches asynchrones
-async def main():
-    producer_task = asyncio.create_task(listen_for_blocks())
-    consumer_task = asyncio.create_task(process_blocks())
-    await asyncio.gather(producer_task, consumer_task)
+# Thread pour l'exécution asynchrone du getter
+def getter_thread():
+    try:
+        main_getter()
+    except KeyboardInterrupt:
+        print("Getter arrêté par l'utilisateur.")
 
 
-# Exécuter l'event loop principal
+def main():
+    conn, cursor = postgre_conn()
+
+    # Création des threads
+    threads = [
+        threading.Thread(target=getter_thread),
+        threading.Thread(target=producer_thread, args=(conn, cursor)),
+        threading.Thread(target=consumer_thread),
+        
+    ]
+
+    # Lancer les threads
+    for thread in threads:
+        thread.start()
+
+    # Attendre que tous les threads se terminent
+    for thread in threads:
+        thread.join()
+
+
 if __name__ == "__main__":
-    asyncio.run(main())
-
-
-
+    main()
