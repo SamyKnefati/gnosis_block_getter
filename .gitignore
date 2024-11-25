@@ -137,3 +137,5 @@ dmypy.json
 
 # Pyre type checker
 .pyre/
+database/__pycache__/database_ingestion.cpython-312.pyc
+database/__pycache__/database_ingestion.cpython-312.pyc
