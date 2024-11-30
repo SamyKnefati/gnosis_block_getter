@@ -44,15 +44,15 @@ Before you start, ensure you have the following installed:
 
 
 3. **Install the required Python packages:**
- ```bash
- pip install -r requirements.txt
-```
+    ```bash
+   pip install -r requirements.txt
+   ```
 4. **Set up PostgreSQL:**
 Create a database named gnosis_blocks.
 Create the necessary tables using the provided SQL script.
 
 5. **Set up Kafka using Docker Compose:**
 Start the services using Docker Compose:
-```bash
-docker-compose up -d
-```
+   ```bash
+   docker-compose up -d
+   ```
